@@ -4,7 +4,7 @@
 // - Rate Limit ueber ai_usage Tabelle (100 calls / user / Stunde)
 // - response_mime_type=application/json fuer strukturierte Outputs
 
-import { createClient } from 'npm:@supabase/supabase-js@2.106.1';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -12,6 +12,15 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const GEMINI_MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
 const RATE_LIMIT_PER_HOUR = Number(Deno.env.get('RATE_LIMIT_PER_HOUR') ?? '100');
+
+// Diagnose beim Start — taucht in den Function-Logs auf.
+console.log('[ai-generate] booted', {
+  hasGeminiKey: !!GEMINI_API_KEY,
+  hasSupabaseUrl: !!SUPABASE_URL,
+  hasServiceRoleKey: !!SUPABASE_SERVICE_ROLE_KEY,
+  model: GEMINI_MODEL,
+  rateLimitPerHour: RATE_LIMIT_PER_HOUR,
+});
 
 const VALID_USERS = ['luca', 'darian', 'tobi'] as const;
 type UserId = (typeof VALID_USERS)[number];
