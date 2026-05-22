@@ -10,6 +10,11 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getLanguageConfig } from '@/languages';
 
+const HEADER_GIFS = [
+  'https://media.giphy.com/media/mOY97EXNisstZqJht9/giphy.gif',
+  'https://media.giphy.com/media/lHOFyVtAptGHFJehNU/giphy.gif',
+];
+
 export function LoginPage() {
   const navigate = useNavigate();
   const { switchUser } = useAuth();
@@ -17,10 +22,18 @@ export function LoginPage() {
   const users = useRepository('users');
   const [list, setList] = useState<User[]>([]);
   const [pending, setPending] = useState<string | null>(null);
+  const [gifIdx, setGifIdx] = useState(0);
 
   useEffect(() => {
     void users.findAll().then(setList);
   }, [users]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setGifIdx((i) => (i + 1) % HEADER_GIFS.length);
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleSelect = async (user: User) => {
     setPending(user.id);
@@ -35,14 +48,19 @@ export function LoginPage() {
   return (
     <Card className="animate-slide-up overflow-hidden p-0">
       <div className="relative h-44 w-full overflow-hidden border-b border-border bg-surface sm:h-56">
-        <img
-          src="https://media.giphy.com/media/mOY97EXNisstZqJht9/giphy.gif"
-          alt=""
-          aria-hidden
-          loading="eager"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {HEADER_GIFS.map((src, idx) => (
+          <img
+            key={src}
+            src={src}
+            alt=""
+            aria-hidden
+            loading="eager"
+            decoding="async"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+              idx === gifIdx ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ))}
         <div
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface-elevated to-transparent"
