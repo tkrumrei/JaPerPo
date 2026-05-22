@@ -1,5 +1,5 @@
 Ich befinde mich irgendwo zwischen B1 und A2 im Persischen (Lesen, Hören, Sprechen, Schreiben) und möchte eine langfristig skalierende App, die ich unbegrenzt nutzen kann,
-um meine Fähigkeiten endlos (sprich theoretisch bis C2) erweitern kann.
+um meine Fähigkeiten endlos (sprich theoretisch bis C2) zu erweitern.
 
 Dabei ist wichtig, dass ich mich nicht um die Prozesse im Hintergrund kümmern muss:
   - Ich will keine Vokabellisten selber erstellen müssen, sondern es werden immer weiter automatisch neue Vokabeln durch KI erzeugt.
