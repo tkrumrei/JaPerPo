@@ -1,24 +1,33 @@
 -- ============================================================
--- JaPerPo — initial schema
+-- JaPerPo — initial schema (idempotent)
 -- ============================================================
 -- Sprachlern-App fuer Luca, Darian, Tobi (Japanisch/Persisch/Portugiesisch).
 -- 3-Personen-Privat-App: anon-Rolle hat vollen Zugriff (RLS aktiv, Policies offen).
 -- App-seitig wird per user_id gefiltert.
-
-create extension if not exists "uuid-ossp";
+--
+-- Idempotent: kann mehrfach laufen ohne Fehler (CREATE IF NOT EXISTS / DO-Blocks).
+-- UUIDs via gen_random_uuid() (Postgres 13+ built-in, keine Extension noetig).
 
 -- ============================================================
 -- Enums
 -- ============================================================
-create type language_code as enum ('ja', 'fa', 'pt');
-create type cefr_level as enum ('A1', 'A2', 'B1', 'B2', 'C1', 'C2');
-create type test_type as enum ('multiple_choice', 'cloze', 'grammar', 'conversation', 'mixed');
+do $$ begin
+  create type language_code as enum ('ja', 'fa', 'pt');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type cefr_level as enum ('A1', 'A2', 'B1', 'B2', 'C1', 'C2');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type test_type as enum ('multiple_choice', 'cloze', 'grammar', 'conversation', 'mixed');
+exception when duplicate_object then null; end $$;
 
 -- ============================================================
 -- Tabellen
 -- ============================================================
 
-create table users (
+create table if not exists users (
   id text primary key check (id in ('luca', 'darian', 'tobi')),
   display_name text not null,
   avatar_color text not null,
@@ -27,15 +36,15 @@ create table users (
   created_at timestamptz not null default now()
 );
 
-create table profiles (
+create table if not exists profiles (
   user_id text primary key references users(id) on delete cascade,
   avatar_url text,
   settings jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
-create table vocabulary_items (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists vocabulary_items (
+  id uuid primary key default gen_random_uuid(),
   language language_code not null,
   word text not null,
   translation text not null,
@@ -48,10 +57,11 @@ create table vocabulary_items (
   ai_generated boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index vocabulary_items_lang_level_idx on vocabulary_items (language, level);
+create index if not exists vocabulary_items_lang_level_idx
+  on vocabulary_items (language, level);
 
-create table progress (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists progress (
+  id uuid primary key default gen_random_uuid(),
   user_id text not null references users(id) on delete cascade,
   vocabulary_id uuid not null references vocabulary_items(id) on delete cascade,
   language language_code not null,
@@ -59,11 +69,12 @@ create table progress (
   updated_at timestamptz not null default now(),
   unique (user_id, vocabulary_id)
 );
-create index progress_user_lang_idx on progress (user_id, language);
-create index progress_next_review_idx on progress (user_id, ((srs ->> 'nextReview')));
+create index if not exists progress_user_lang_idx on progress (user_id, language);
+create index if not exists progress_next_review_idx
+  on progress (user_id, ((srs ->> 'nextReview')));
 
-create table dialogues (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists dialogues (
+  id uuid primary key default gen_random_uuid(),
   language language_code not null,
   title text not null,
   scenario text not null,
@@ -72,10 +83,10 @@ create table dialogues (
   ai_generated boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index dialogues_lang_level_idx on dialogues (language, level);
+create index if not exists dialogues_lang_level_idx on dialogues (language, level);
 
-create table reading_texts (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists reading_texts (
+  id uuid primary key default gen_random_uuid(),
   language language_code not null,
   title text not null,
   content text not null,
@@ -84,10 +95,11 @@ create table reading_texts (
   ai_generated boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index reading_texts_lang_level_idx on reading_texts (language, level);
+create index if not exists reading_texts_lang_level_idx
+  on reading_texts (language, level);
 
-create table cloze_texts (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists cloze_texts (
+  id uuid primary key default gen_random_uuid(),
   language language_code not null,
   title text not null,
   content_text text not null,
@@ -96,10 +108,11 @@ create table cloze_texts (
   ai_generated boolean not null default true,
   created_at timestamptz not null default now()
 );
-create index cloze_texts_lang_level_idx on cloze_texts (language, level);
+create index if not exists cloze_texts_lang_level_idx
+  on cloze_texts (language, level);
 
-create table tests (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists tests (
+  id uuid primary key default gen_random_uuid(),
   user_id text not null references users(id) on delete cascade,
   language language_code not null,
   title text not null,
@@ -112,19 +125,20 @@ create table tests (
   created_at timestamptz not null default now(),
   completed_at timestamptz
 );
-create index tests_user_lang_idx on tests (user_id, language);
+create index if not exists tests_user_lang_idx on tests (user_id, language);
 
-create table sentence_of_the_day (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists sentence_of_the_day (
+  id uuid primary key default gen_random_uuid(),
   date date not null unique,
   texts jsonb not null,
   selected_by_user_id text references users(id),
   explanation text,
   highlighted_words jsonb
 );
-create index sentence_of_the_day_date_idx on sentence_of_the_day (date desc);
+create index if not exists sentence_of_the_day_date_idx
+  on sentence_of_the_day (date desc);
 
-create table statistics (
+create table if not exists statistics (
   user_id text primary key references users(id) on delete cascade,
   streak_days integer not null default 0,
   last_study_date date,
@@ -138,7 +152,7 @@ create table statistics (
   updated_at timestamptz not null default now()
 );
 
-create table leaderboard (
+create table if not exists leaderboard (
   user_id text primary key references users(id) on delete cascade,
   rank smallint not null,
   xp integer not null default 0,
@@ -146,15 +160,16 @@ create table leaderboard (
   updated_at timestamptz not null default now()
 );
 
-create table ai_usage (
-  id uuid primary key default uuid_generate_v4(),
+create table if not exists ai_usage (
+  id uuid primary key default gen_random_uuid(),
   user_id text not null references users(id) on delete cascade,
   endpoint text not null,
   tokens_in integer,
   tokens_out integer,
   created_at timestamptz not null default now()
 );
-create index ai_usage_user_time_idx on ai_usage (user_id, created_at desc);
+create index if not exists ai_usage_user_time_idx
+  on ai_usage (user_id, created_at desc);
 
 -- ============================================================
 -- Seed: feste 3 Nutzer
@@ -196,27 +211,59 @@ alter table statistics enable row level security;
 alter table leaderboard enable row level security;
 alter table ai_usage enable row level security;
 
+-- Policies: drop-then-create damit Re-Runs sauber laufen
+drop policy if exists "anon all users" on users;
 create policy "anon all users" on users for all using (true) with check (true);
+
+drop policy if exists "anon all profiles" on profiles;
 create policy "anon all profiles" on profiles for all using (true) with check (true);
+
+drop policy if exists "anon all vocabulary_items" on vocabulary_items;
 create policy "anon all vocabulary_items" on vocabulary_items for all using (true) with check (true);
+
+drop policy if exists "anon all progress" on progress;
 create policy "anon all progress" on progress for all using (true) with check (true);
+
+drop policy if exists "anon all dialogues" on dialogues;
 create policy "anon all dialogues" on dialogues for all using (true) with check (true);
+
+drop policy if exists "anon all reading_texts" on reading_texts;
 create policy "anon all reading_texts" on reading_texts for all using (true) with check (true);
+
+drop policy if exists "anon all cloze_texts" on cloze_texts;
 create policy "anon all cloze_texts" on cloze_texts for all using (true) with check (true);
+
+drop policy if exists "anon all tests" on tests;
 create policy "anon all tests" on tests for all using (true) with check (true);
+
+drop policy if exists "anon all sentence_of_the_day" on sentence_of_the_day;
 create policy "anon all sentence_of_the_day" on sentence_of_the_day for all using (true) with check (true);
+
+drop policy if exists "anon all statistics" on statistics;
 create policy "anon all statistics" on statistics for all using (true) with check (true);
+
+drop policy if exists "anon all leaderboard" on leaderboard;
 create policy "anon all leaderboard" on leaderboard for all using (true) with check (true);
 
 -- ai_usage: nur Read + Insert von anon — kein Update/Delete (Rate-Limit-Manipulation verhindern).
--- Schreibt nur die Edge Function (mit service_role) tatsaechlich neu/loescht.
+drop policy if exists "anon read ai_usage" on ai_usage;
 create policy "anon read ai_usage" on ai_usage for select using (true);
+
+drop policy if exists "anon insert ai_usage" on ai_usage;
 create policy "anon insert ai_usage" on ai_usage for insert with check (true);
 
 -- ============================================================
--- Realtime
+-- Realtime (idempotent ueber DO-Block)
 -- ============================================================
 
-alter publication supabase_realtime add table leaderboard;
-alter publication supabase_realtime add table sentence_of_the_day;
-alter publication supabase_realtime add table statistics;
+do $$ begin
+  alter publication supabase_realtime add table leaderboard;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table sentence_of_the_day;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table statistics;
+exception when duplicate_object then null; end $$;
