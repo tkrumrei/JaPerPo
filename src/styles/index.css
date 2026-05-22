@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Hintergrund / Oberflaechen */
+    --color-bg: 250 250 252;
+    --color-surface: 255 255 255;
+    --color-surface-elevated: 255 255 255;
+    --color-border: 228 228 231;
+
+    /* Text */
+    --color-text-primary: 24 24 27;
+    --color-text-secondary: 82 82 91;
+    --color-text-muted: 161 161 170;
+
+    /* Akzent (Default — wird per data-lang ueberschrieben) */
+    --color-accent: 99 102 241;
+    --color-accent-soft: 199 210 254;
+    --color-accent-contrast: 255 255 255;
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --color-bg: 11 15 20;
+    --color-surface: 22 27 34;
+    --color-surface-elevated: 32 38 47;
+    --color-border: 45 53 64;
+
+    --color-text-primary: 244 244 245;
+    --color-text-secondary: 212 212 216;
+    --color-text-muted: 113 113 122;
+
+    --color-accent: 129 140 248;
+    --color-accent-soft: 49 46 129;
+    --color-accent-contrast: 255 255 255;
+
+    color-scheme: dark;
+  }
+
+  /* Sprach-Akzente — Sakura / Tuerkis / Wein-Rot */
+  [data-lang='ja'] {
+    --color-accent: 237 29 89;
+    --color-accent-soft: 255 228 234;
+    --color-accent-contrast: 255 255 255;
+  }
+  .dark [data-lang='ja'] {
+    --color-accent: 255 111 139;
+    --color-accent-soft: 88 20 63;
+    --color-accent-contrast: 255 255 255;
+  }
+
+  [data-lang='fa'] {
+    --color-accent: 31 156 157;
+    --color-accent-soft: 211 247 245;
+    --color-accent-contrast: 255 255 255;
+  }
+  .dark [data-lang='fa'] {
+    --color-accent: 116 222 221;
+    --color-accent-soft: 20 79 85;
+    --color-accent-contrast: 8 27 28;
+  }
+
+  [data-lang='pt'] {
+    --color-accent: 122 31 43;
+    --color-accent-soft: 245 223 226;
+    --color-accent-contrast: 255 255 255;
+  }
+  .dark [data-lang='pt'] {
+    --color-accent: 201 94 108;
+    --color-accent-soft: 69 23 32;
+    --color-accent-contrast: 255 255 255;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text-primary antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface-elevated shadow-card;
+  }
+  .card-pad {
+    @apply p-4 sm:p-5;
+  }
+  .ring-accent {
+    --tw-ring-color: rgb(var(--color-accent));
+  }
+}
