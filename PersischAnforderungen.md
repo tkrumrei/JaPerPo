@@ -15,5 +15,6 @@ Folgende Funktionen sollen mindestens enthalten sein:
   - Bei Bedarf Erklärungen zu Wörtern (Herkunft, Konjugation etc.) oder Grammatik durch KI
   - KI soll elementar genutzt werden für die Erstellung von Texten oder für die neue Generierung von Vokabeln
      - Dies kann durch APIS wie openai/gemini oder auch lokale Modelle erfolgen
-  - Gamified Elemente
+     - Ein integriertes Chat-Fenster welches immer den Kontext der aktuellen Session bekommt
+  - Gamified Elemente (Leaderboards, EXP um Sachen/Designs/Funktionen, vorzuschlagen)
   - Ein Leaderboard für Fleiß (Im Vergleich zu den anderen Beiden Nutzern)
