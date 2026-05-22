@@ -9,6 +9,7 @@ Ich will wenn ich persische Wörter schreibe, diese auch in lateinischer Lautsch
 
 Folgende Funktionen sollen mindestens enthalten sein:
   - Vokabeltrainer
+     - Lateinische Lautschrift, damit man auch ohne Sprachfunktionalität weiß, wie man Wörter aussprechen/lesen muss
   - Lesetexte
   - Sprachproduktion (Textform: Nicht zu lange Texte, eher Wörter/Sätze, um Vokabeln zu festigen, Keine Sprachfunktionalität)
   - Bei Bedarf Erklärungen zu Wörtern (Herkunft, Konjugation etc.) oder Grammatik durch KI
