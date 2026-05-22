@@ -33,11 +33,27 @@ export function LoginPage() {
   };
 
   return (
-    <Card className="animate-slide-up">
-      <CardTitle className="text-center text-2xl">{t('login.title')}</CardTitle>
-      <CardDescription className="text-center">{t('login.subtitle')}</CardDescription>
+    <Card className="animate-slide-up overflow-hidden p-0">
+      <div className="relative h-44 w-full overflow-hidden border-b border-border bg-surface sm:h-56">
+        <img
+          src="https://media.giphy.com/media/mOY97EXNisstZqJht9/giphy.gif"
+          alt=""
+          aria-hidden
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface-elevated to-transparent"
+        />
+      </div>
 
-      <div className="mt-6 grid gap-3">
+      <div className="p-5 sm:p-6">
+        <CardTitle className="text-center text-2xl">{t('login.title')}</CardTitle>
+        <CardDescription className="text-center">{t('login.subtitle')}</CardDescription>
+
+        <div className="mt-6 grid gap-3">
         {list.map((user) => {
           const isPending = pending === user.id;
           const lang = getLanguageConfig(user.primaryLanguage);
@@ -65,6 +81,7 @@ export function LoginPage() {
             </button>
           );
         })}
+        </div>
       </div>
     </Card>
   );

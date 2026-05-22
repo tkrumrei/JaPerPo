@@ -3,44 +3,119 @@ import type {
   ClozeText,
   Dialogue,
   LanguageCode,
-  ReadingText,
+  SentenceOfTheDay,
+  Test,
+  TestType,
   VocabularyItem,
 } from '@/types';
 
+export interface GeneratedVocabularyInput {
+  language: LanguageCode;
+  level: CefrLevel;
+  topic?: string;
+  count?: number;
+}
+
+export interface GeneratedVocabulary {
+  word: string;
+  translation: string;
+  transcription?: string;
+  exampleSentence: string;
+  category?: string;
+}
+
+export interface GeneratedDialogue {
+  title: string;
+  scenario: string;
+  steps: Dialogue['steps'];
+}
+
+export interface GeneratedReading {
+  title: string;
+  content: string;
+  wordCount: number;
+}
+
+export interface GeneratedCloze {
+  title: string;
+  contentText: string;
+  positions: ClozeText['positions'];
+}
+
+export interface GeneratedGrammarExample {
+  text: string;
+  transcription?: string;
+  translation: string;
+}
+
+export interface GeneratedGrammar {
+  title: string;
+  explanation: string;
+  examples: GeneratedGrammarExample[];
+}
+
+export interface GeneratedTest {
+  title: string;
+  questions: Test['questions'];
+}
+
+export interface GeneratedSentenceOfTheDay {
+  texts: SentenceOfTheDay['texts'];
+  explanation: string;
+  highlightedWords?: string[];
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 export interface AIProvider {
-  generateVocabulary(input: {
-    language: LanguageCode;
-    level: CefrLevel;
-    topic?: string;
-    count?: number;
-  }): Promise<VocabularyItem[]>;
+  generateVocabulary(input: GeneratedVocabularyInput): Promise<GeneratedVocabulary[]>;
 
   generateDialogue(input: {
     language: LanguageCode;
     scenario: string;
     level: CefrLevel;
-  }): Promise<Dialogue>;
+  }): Promise<GeneratedDialogue>;
 
   generateReading(input: {
     language: LanguageCode;
     topic?: string;
     level: CefrLevel;
     minWords?: number;
-  }): Promise<ReadingText>;
+  }): Promise<GeneratedReading>;
 
   generateCloze(input: {
     language: LanguageCode;
     source?: string;
     level: CefrLevel;
-  }): Promise<ClozeText>;
+  }): Promise<GeneratedCloze>;
+
+  explainGrammar(input: {
+    language: LanguageCode;
+    topic: string;
+    level: CefrLevel;
+  }): Promise<GeneratedGrammar>;
+
+  generateTest(input: {
+    language: LanguageCode;
+    level: CefrLevel;
+    type: TestType;
+    count?: number;
+  }): Promise<GeneratedTest>;
+
+  generateSentenceOfTheDay(): Promise<GeneratedSentenceOfTheDay>;
 
   chat(input: {
     language: LanguageCode;
-    history: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+    history: ChatMessage[];
     message: string;
   }): Promise<string>;
 }
 
-// TODO: Provider-Auswahl (OpenAI / Anthropic / Gemini / Open-Source) erfolgt
-// spaeter — Implementierungen in src/lib/ai/<provider>.ts.
-export const ai: AIProvider | null = null;
+// Re-export of the concrete provider so consumers don't need to know which one is active.
+export { createGeminiProvider } from './gemini';
+
+// Convenience helper: returns null when the backend (Supabase) is unavailable.
+export type { VocabularyItem };

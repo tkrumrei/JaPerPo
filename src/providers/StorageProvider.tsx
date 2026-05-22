@@ -8,18 +8,23 @@ interface StorageProviderProps {
 }
 
 export function StorageProvider({ children }: StorageProviderProps) {
-  const repositories = useMemo(() => createRepositories(), []);
+  const { repositories, mode } = useMemo(() => createRepositories(), []);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let active = true;
-    seedUsers(repositories.users, repositories.profiles).finally(() => {
+    const init = async () => {
+      if (mode === 'localStorage') {
+        // Supabase-Modus: Seed liegt in der SQL-Migration, hier nicht doppeln.
+        await seedUsers(repositories.users, repositories.profiles);
+      }
       if (active) setReady(true);
-    });
+    };
+    void init();
     return () => {
       active = false;
     };
-  }, [repositories]);
+  }, [repositories, mode]);
 
   if (!ready) return null;
 

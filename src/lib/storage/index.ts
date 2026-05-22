@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase/client';
 import { localStorageDriver } from './localStorageDriver';
 import { createUserRepository, type UserRepository } from './repositories/UserRepository';
 import { createProfileRepository, type ProfileRepository } from './repositories/ProfileRepository';
@@ -28,6 +29,7 @@ import {
   createLeaderboardRepository,
   type LeaderboardRepository,
 } from './repositories/LeaderboardRepository';
+import { createSupabaseRepositories } from './supabase';
 
 export interface Repositories {
   users: UserRepository;
@@ -43,7 +45,9 @@ export interface Repositories {
   leaderboard: LeaderboardRepository;
 }
 
-export function createRepositories(): Repositories {
+export type StorageMode = 'supabase' | 'localStorage';
+
+export function createLocalRepositories(): Repositories {
   const driver = localStorageDriver;
   return {
     users: createUserRepository(driver),
@@ -58,6 +62,13 @@ export function createRepositories(): Repositories {
     statistics: createStatisticsRepository(driver),
     leaderboard: createLeaderboardRepository(driver),
   };
+}
+
+export function createRepositories(): { repositories: Repositories; mode: StorageMode } {
+  if (supabase) {
+    return { repositories: createSupabaseRepositories(supabase), mode: 'supabase' };
+  }
+  return { repositories: createLocalRepositories(), mode: 'localStorage' };
 }
 
 export { localStorageDriver } from './localStorageDriver';
