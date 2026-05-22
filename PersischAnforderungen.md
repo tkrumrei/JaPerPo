@@ -10,7 +10,7 @@ Ich will wenn ich persische Wörter schreibe, diese auch in lateinischer Lautsch
 Folgende Funktionen sollen mindestens enthalten sein:
   - Vokabeltrainer
   - Lesetexte
-  - Sprachproduktion (Nicht zu lange Texte, eher Wörter/Sätze, um Vokabeln zu festigen)
+  - Sprachproduktion (Textform: Nicht zu lange Texte, eher Wörter/Sätze, um Vokabeln zu festigen, Keine Sprachfunktionalität)
   - Bei Bedarf Erklärungen zu Wörtern (Herkunft, Konjugation etc.) oder Grammatik durch KI
   - KI soll elementar genutzt werden für die Erstellung von Texten oder für die neue Generierung von Vokabeln
      - Dies kann durch APIS wie openai/gemini oder auch lokale Modelle erfolgen
