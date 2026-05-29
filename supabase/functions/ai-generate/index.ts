@@ -6,7 +6,6 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2.106.1';
 
-const GEMINI_API_KEY = Deno.env.get('D_OPENROUTER_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -56,9 +55,9 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return json({ ok: false, error: 'Method not allowed' }, 405);
   }
-  if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return json(
-      { ok: false, error: 'Edge Function nicht konfiguriert (Secrets fehlen).' },
+      { ok: false, error: 'Edge Function nicht konfiguriert (Supabase Secrets fehlen).' },
       500,
     );
   }
@@ -75,6 +74,25 @@ Deno.serve(async (req: Request) => {
   }
   if (!VALID_ACTIONS.includes(body.action)) {
     return json({ ok: false, error: 'Unbekannte action.' }, 400);
+  }
+
+  // ==========================================================
+  // Dynamische API-Key Auswahl basierend auf dem Nutzer
+  // ==========================================================
+  const apiKeyMapping: Record<UserId, string> = {
+    luca: 'L_OPENROUTER_API_KEY',
+    darian: 'D_OPENROUTER_API_KEY',
+    tobi: 'T_OPENROUTER_API_KEY',
+  };
+
+  const envKeyName = apiKeyMapping[body.userId];
+  const USER_API_KEY = Deno.env.get(envKeyName);
+
+  if (!USER_API_KEY) {
+    return json(
+      { ok: false, error: `API-Key für Nutzer '${body.userId}' (${envKeyName}) fehlt in Supabase.` },
+      500
+    );
   }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -105,22 +123,24 @@ Deno.serve(async (req: Request) => {
   let prompt: string;
   let schema: Record<string, unknown> | undefined;
   try {
-    ({ prompt, schema } = buildPrompt(body.action, body.payload));
+    // HIER ÄNDERN: body.userId als erstes Argument übergeben!
+    ({ prompt, schema } = buildPrompt(body.userId, body.action, body.payload));
   } catch (err) {
     return json({ ok: false, error: (err as Error).message }, 400);
   }
 
   // ==========================================================
-  // OpenRouter-Aufruf (Schema in den Prompt injizieren!)
+  // OpenRouter-Aufruf
   // ==========================================================
   const url = `https://openrouter.ai/api/v1/chat/completions`;
 
   let finalPrompt = prompt;
 
-  // HIER IST DER FIX: Wir hängen das Schema direkt an den Text an,
-  // damit das KI-Modell exakt weiß, welche Felder gefordert sind!
   if (schema) {
-    finalPrompt += `\n\nWICHTIG: Antworte AUSSCHLIESSLICH im JSON-Format. Dein JSON MUSS exakt diesem Schema entsprechen:\n${JSON.stringify(schema, null, 2)}`;
+    finalPrompt += `\n\nWICHTIG: Antworte AUSSCHLIESSLICH als reines JSON. ` +
+      `Kopiere NIEMALS die Wörter "type", "properties" oder "required" in deine Antwort! ` +
+      `Dein JSON-Objekt muss direkt mit den geforderten Schlüsseln beginnen. ` +
+      `Hier ist das Schema, an das du dich inhaltlich halten musst:\n${JSON.stringify(schema, null, 2)}`;
   }
 
   const requestBody: Record<string, unknown> = {
@@ -137,7 +157,8 @@ Deno.serve(async (req: Request) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GEMINI_API_KEY}`,
+      // Wir nutzen jetzt den dynamisch geladenen Key des Users!
+      'Authorization': `Bearer ${USER_API_KEY}`,
     },
     body: JSON.stringify(requestBody),
   });
@@ -160,8 +181,6 @@ Deno.serve(async (req: Request) => {
   let data: unknown = rawText;
   if (schema) {
     try {
-      // FIX 2: Wir entfernen Markdown-Backticks (```json ... ```),
-      // die manche Modelle trotz JSON-Zwang gerne mitschicken.
       const cleanedText = rawText.replace(/^```(json)?|```$/gm, '').trim();
       data = JSON.parse(cleanedText);
     } catch (parseErr) {
@@ -170,8 +189,6 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Vocab: Frontend erwartet ein Array. Modelle liefern unter response_format=json_object
-  // immer ein Objekt, daher unter "items" wrappen und hier auspacken.
   if (body.action === 'vocab' && data && typeof data === 'object' && !Array.isArray(data)) {
     const obj = data as Record<string, unknown>;
     if (Array.isArray(obj.items)) {
@@ -201,6 +218,7 @@ Deno.serve(async (req: Request) => {
 // ============================================================
 
 function buildPrompt(
+  userId: UserId,
   action: Action,
   payload: Record<string, unknown>,
 ): { prompt: string; schema?: Record<string, unknown> } {
@@ -220,9 +238,19 @@ function buildPrompt(
       const level = String(payload.level ?? 'A1');
       const topic = String(payload.topic ?? 'Alltag');
       const count = Math.min(20, Math.max(1, Number(payload.count ?? 10)));
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Generiere ${count} anspruchsvolle, fortgeschrittene Vokabeln in ${langLabel} fuer Niveau ${level}, Thema "${topic}". `;
+      } else if (userId === 'darian') {
+        userPrompt = `Erstelle eine Liste von ${count} alltagsnahen, haeufig genutzten Vokabeln in ${langLabel} (Niveau ${level}) zum Thema "${topic}". `;
+      } else {
+        userPrompt = `Gib mir ${count} typische Vokabeln in ${langLabel} fuer Niveau ${level}, Thema "${topic}". `;
+      }
+
       return {
         prompt:
-          `Generiere ${count} Vokabeln in ${langLabel} fuer Niveau ${level}, Thema "${topic}". ` +
+          userPrompt +
           `Fuer ${langLabel} gib Wort in Originalschrift, deutsche Uebersetzung, lateinische Lautschrift und einen Beispielsatz. ` +
           `Antworte als JSON-Objekt mit dem Feld "items" (Array der Vokabeln).`,
         schema: {
@@ -247,12 +275,23 @@ function buildPrompt(
         },
       };
     }
+
     case 'dialogue': {
       const scenario = String(payload.scenario ?? 'Restaurant');
       const level = String(payload.level ?? 'A1');
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Erstelle einen anspruchsvollen, eher formellen Dialog in ${langLabel} fuer Niveau ${level}, Szenario "${scenario}". Verwende hoefliche Formen und komplexeres Vokabular. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Erstelle einen sehr lockeren, umgangssprachlichen Dialog in ${langLabel} fuer Niveau ${level}, Szenario "${scenario}". Verwende natuerliche Alltagssprache. `;
+      } else {
+        userPrompt = `Erstelle einen typischen Lerndialog in ${langLabel} fuer Niveau ${level}, Szenario "${scenario}". `;
+      }
+
       return {
         prompt:
-          `Erstelle einen kurzen Lerndialog in ${langLabel} fuer Niveau ${level}, Szenario "${scenario}". ` +
+          userPrompt +
           `8 Schritte abwechselnd ai/user. Felder pro Schritt: speaker, text, transcription, translation, hints (Array). ` +
           `Antworte als JSON-Objekt.`,
         schema: {
@@ -279,14 +318,23 @@ function buildPrompt(
         },
       };
     }
+
     case 'reading': {
       const level = String(payload.level ?? 'A1');
       const topic = String(payload.topic ?? 'Alltag');
       const minWords = Math.min(400, Math.max(50, Number(payload.minWords ?? 120)));
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Schreibe einen sprachlich anspruchsvollen Lesetext in ${langLabel} fuer Niveau ${level} zum Thema "${topic}". Nutze abwechslungsreiche Satzstrukturen. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Schreibe einen leicht verstaendlichen, unterhaltsamen Lesetext in ${langLabel} fuer Niveau ${level} zum Thema "${topic}". Halte die Saetze relativ kurz. `;
+      } else {
+        userPrompt = `Schreibe einen klassischen Lesetext in ${langLabel} fuer Niveau ${level} zum Thema "${topic}". `;
+      }
+
       return {
-        prompt:
-          `Schreibe einen kurzen Lesetext in ${langLabel} fuer Niveau ${level} zum Thema "${topic}". ` +
-          `Mindestens ${minWords} Woerter. Antworte als JSON-Objekt.`,
+        prompt: userPrompt + `Mindestens ${minWords} Woerter. Antworte als JSON-Objekt.`,
         schema: {
           type: 'object',
           properties: {
@@ -298,12 +346,23 @@ function buildPrompt(
         },
       };
     }
+
     case 'cloze': {
       const level = String(payload.level ?? 'A1');
       const source = payload.source ? String(payload.source) : null;
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Erzeuge einen schweren Lueckentext in ${langLabel} fuer Niveau ${level}. Der Fokus soll auf feinen Grammatikunterschieden und anspruchsvollen Vokabeln liegen. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Erzeuge einen einfachen, machbaren Lueckentext in ${langLabel} fuer Niveau ${level}. Konzentriere dich auf wichtige Alltagswoerter. `;
+      } else {
+        userPrompt = `Erzeuge einen ausgewogenen Lueckentext in ${langLabel} fuer Niveau ${level}. `;
+      }
+
       return {
         prompt:
-          `Erzeuge einen Lueckentext in ${langLabel} fuer Niveau ${level}. ` +
+          userPrompt +
           (source ? `Quelle: ${source}\n` : '') +
           `Felder: title, contentText (Text mit {{0}}, {{1}}... als Lueckenmarker), positions (Array mit index/answer/hint). ` +
           `Antworte als JSON-Objekt.`,
@@ -329,27 +388,49 @@ function buildPrompt(
         },
       };
     }
+
     case 'chat': {
       const message = String(payload.message ?? '');
       const history = Array.isArray(payload.history) ? payload.history : [];
       const historyText = (history as Array<{ role: string; content: string }>)
         .map((m) => `${m.role}: ${m.content}`)
         .join('\n');
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Du bist ein anspruchsvoller Sprachlehrer fuer ${langLabel}. Korrigiere kleine Fehler sofort und nutze gehobenes Vokabular. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Du bist ein sehr lockerer, freundlicher Sprachpartner fuer ${langLabel}. Nutze oft umgangssprachliche Ausdruecke und sei sehr motivierend. `;
+      } else {
+        userPrompt = `Du bist ein geduldiger und freundlicher Tutor fuer ${langLabel}. Schreibe auch immer, das romanisierte Japansich unter den japanisches Satz. `;
+      }
+
       return {
         prompt:
-          `Du bist ein freundlicher Sprachpartner fuer ${langLabel}. ` +
+          userPrompt +
           `Antworte in ${langLabel} (max 2-3 Saetze) und fuege darunter eine kurze deutsche Erklaerung an. ` +
           `Bisheriger Verlauf:\n${historyText}\n\nNutzer: ${message}`,
       };
     }
+
     case 'grammar': {
       const topic = String(payload.topic ?? 'Grammatik');
       const level = String(payload.level ?? 'A1');
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Erklaere das Grammatikthema "${topic}" in ${langLabel} (Niveau ${level}) detailliert und linguistisch präzise auf Deutsch. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Erklaere das Grammatikthema "${topic}" in ${langLabel} (Niveau ${level}) extrem simpel, anschaulich und ohne zu viele Fachbegriffe auf Deutsch. `;
+      } else {
+        userPrompt = `Erklaere das Grammatikthema "${topic}" in ${langLabel} (Niveau ${level}) kurz und verstaendlich auf Deutsch. `;
+      }
+
       return {
         prompt:
-          `Erklaere die Grammatikthema "${topic}" in ${langLabel} (Niveau ${level}) auf Deutsch, ` +
-          `kurz und mit 3 Beispielsaetzen in Originalschrift + Lautschrift + Uebersetzung. ` +
-          `Antworte als JSON-Objekt.`,
+          userPrompt +
+          `Gib exakt 3 Beispielsaetze (Originalschrift + Lautschrift + Uebersetzung). ` +
+          `WICHTIG: Verwende innerhalb deiner Texte (z.B. in der Erklaerung) AUSSCHLIESSLICH einfache Anfuehrungszeichen (') und niemals doppelte ("), da sonst die JSON-Struktur zerstoert wird!`,
         schema: {
           type: 'object',
           properties: {
@@ -372,14 +453,23 @@ function buildPrompt(
         },
       };
     }
+
     case 'test': {
       const level = String(payload.level ?? 'A1');
       const type = String(payload.type ?? 'mixed');
       const count = Math.min(20, Math.max(3, Number(payload.count ?? 8)));
+
+      let userPrompt = '';
+      if (userId === 'luca') {
+        userPrompt = `Erzeuge einen anspruchsvollen Test (${type}) in ${langLabel} fuer Niveau ${level} mit ${count} kniffligen Fragen und aehnlichen Distraktoren. `;
+      } else if (userId === 'darian') {
+        userPrompt = `Erzeuge einen leichten, motivierenden Test (${type}) in ${langLabel} fuer Niveau ${level} mit ${count} klaren Fragen ohne fiese Fallen. `;
+      } else {
+        userPrompt = `Erzeuge einen Standard-Test (${type}) in ${langLabel} fuer Niveau ${level} mit ${count} Fragen. `;
+      }
+
       return {
-        prompt:
-          `Erzeuge einen Test (${type}) in ${langLabel} fuer Niveau ${level} mit ${count} Fragen. ` +
-          `Antworte als JSON-Objekt.`,
+        prompt: userPrompt + `Antworte als JSON-Objekt.`,
         schema: {
           type: 'object',
           properties: {
@@ -403,6 +493,7 @@ function buildPrompt(
         },
       };
     }
+
     case 'sentence_of_day': {
       return {
         prompt:
