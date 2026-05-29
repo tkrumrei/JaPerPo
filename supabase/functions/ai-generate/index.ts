@@ -170,6 +170,18 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Vocab: Frontend erwartet ein Array. Modelle liefern unter response_format=json_object
+  // immer ein Objekt, daher unter "items" wrappen und hier auspacken.
+  if (body.action === 'vocab' && data && typeof data === 'object' && !Array.isArray(data)) {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.items)) {
+      data = obj.items;
+    } else {
+      const firstArray = Object.values(obj).find((v) => Array.isArray(v));
+      if (firstArray) data = firstArray;
+    }
+  }
+
   // ==========================================================
   // Usage protokollieren
   // ==========================================================
@@ -212,20 +224,26 @@ function buildPrompt(
         prompt:
           `Generiere ${count} Vokabeln in ${langLabel} fuer Niveau ${level}, Thema "${topic}". ` +
           `Fuer ${langLabel} gib Wort in Originalschrift, deutsche Uebersetzung, lateinische Lautschrift und einen Beispielsatz. ` +
-          `Antworte ausschliesslich als JSON-Array.`,
+          `Antworte als JSON-Objekt mit dem Feld "items" (Array der Vokabeln).`,
         schema: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              word: { type: 'string' },
-              translation: { type: 'string' },
-              transcription: { type: 'string' },
-              exampleSentence: { type: 'string' },
-              category: { type: 'string' },
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  word: { type: 'string' },
+                  translation: { type: 'string' },
+                  transcription: { type: 'string' },
+                  exampleSentence: { type: 'string' },
+                  category: { type: 'string' },
+                },
+                required: ['word', 'translation', 'exampleSentence'],
+              },
             },
-            required: ['word', 'translation', 'exampleSentence'],
           },
+          required: ['items'],
         },
       };
     }
